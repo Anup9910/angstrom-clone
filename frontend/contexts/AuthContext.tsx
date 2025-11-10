@@ -1,7 +1,17 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI, User } from '@/lib/api';
+
+type User = {
+  id: number;
+  username: string;
+  email: string;
+};
+
+type TokenResponse = {
+  access_token: string;
+  token_type?: string;
+};
 
 interface AuthContextType {
   user: User | null;
@@ -14,41 +24,64 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+async function loginRequest(username: string, password: string): Promise<TokenResponse> {
+  const response = await fetch(`${API_URL}/v1/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ username, password }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.detail || 'Login failed');
+  }
+
+  return data;
+}
+
+async function registerRequest(username: string, email: string, password: string): Promise<User> {
+  const response = await fetch(`${API_URL}/v1/auth/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ username, email, password }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.detail || 'Registration failed');
+  }
+
+  return data;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored token on mount
     const storedToken = localStorage.getItem('token');
     if (storedToken) {
       setToken(storedToken);
-      // Optionally: fetch user data with token
     }
     setIsLoading(false);
   }, []);
 
   const login = async (username: string, password: string) => {
-    try {
-      const response = await authAPI.login({ username, password });
-      const { access_token } = response;
-      setToken(access_token);
-      localStorage.setItem('token', access_token);
-      // You can fetch user data here if needed
-    } catch (error: any) {
-      throw new Error(error.response?.data?.detail || 'Login failed');
-    }
+    const { access_token } = await loginRequest(username, password);
+    setToken(access_token);
+    localStorage.setItem('token', access_token);
   };
 
   const register = async (username: string, email: string, password: string) => {
-    try {
-      const user = await authAPI.register({ username, email, password });
-      setUser(user);
-      // After registration, you might want to auto-login
-    } catch (error: any) {
-      throw new Error(error.response?.data?.detail || 'Registration failed');
-    }
+    const createdUser = await registerRequest(username, email, password);
+    setUser(createdUser);
   };
 
   const logout = () => {

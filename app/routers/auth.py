@@ -9,7 +9,7 @@ from app.database import get_db
 from app.models import User
 from app.schemas import Token, UserCreate, UserLogin, UserRead
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(prefix="/v1/auth", tags=["Authentication"])
 
 SECRET_KEY = "change-me"  # TODO: load from environment
 ALGORITHM = "HS256"

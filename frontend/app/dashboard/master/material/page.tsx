@@ -1,89 +1,119 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from "react";
+import AddMaterialButton from "./addMaterialButton";
+import MaterialTable from "./materialTable";
+import { useAuth } from "@/contexts/AuthContext";
 
-export default function MaterialMasterPage() {
-  const [commodityCode, setCommodityCode] = useState('');
-  const [description, setDescription] = useState('');
+type Material = {
+  id: number;
+  commodityCode: string;
+  description: string;
+};
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+type MaterialApiItem = {
+  id: number;
+  commodity_code: string;
+  description: string;
+};
 
-    // TODO: call your FastAPI endpoint here
-    console.log('Submitting material master form', {
-      commodity_code: commodityCode,
-      description,
-    });
+type MaterialApiResponse = {
+  items: MaterialApiItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};
 
-    setCommodityCode('');
-    setDescription('');
-  };
+type ApiErrorResponse = {
+  detail?: string;
+};
 
-  const handleReset = () => {
-    setCommodityCode('');
-    setDescription('');
-  };
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+export default function MaterialPage() {
+  const { token, isLoading: authIsLoading } = useAuth();
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (authIsLoading) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function fetchMaterials() {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(`${API_URL}/v1/material-master?page=1&page_size=25`, {
+          method: "GET",
+          headers: token
+            ? {
+                Authorization: `Bearer ${token}`,
+              }
+            : undefined,
+          signal: controller.signal,
+        });
+
+        const parsedBody: MaterialApiResponse | ApiErrorResponse | null = await response
+          .json()
+          .catch(() => null);
+
+        if (!response.ok) {
+          const message = (parsedBody as ApiErrorResponse)?.detail || "Failed to fetch materials";
+          throw new Error(message);
+        }
+
+        if (!parsedBody || !("items" in parsedBody)) {
+          throw new Error("Unexpected response from server");
+        }
+
+        const normalizedMaterials = parsedBody.items.map((item) => ({
+          id: item.id,
+          commodityCode: item.commodity_code,
+          description: item.description,
+        }));
+
+        setMaterials(normalizedMaterials);
+      } catch (fetchError) {
+        if (fetchError instanceof DOMException && fetchError.name === "AbortError") {
+          return;
+        }
+
+        const message = fetchError instanceof Error ? fetchError.message : "An unexpected error occurred";
+        setError(message);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchMaterials();
+
+    return () => {
+      controller.abort();
+    };
+  }, [authIsLoading, token]);
 
   return (
-    <div className="w-full">
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <header className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Material Master</h1>
-          <p className="text-gray-600">Fill in the details below to add a new material record.</p>
-        </header>
-
-        <section className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-6 text-gray-800">Material Details</h2>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="commodity_code" className="block text-sm font-medium text-gray-700 mb-2">
-                Commodity Code *
-              </label>
-              <input
-                id="commodity_code"
-                type="text"
-                value={commodityCode}
-                onChange={(event) => setCommodityCode(event.target.value)}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black"
-                placeholder="Enter material/item code"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                Description *
-              </label>
-              <textarea
-                id="description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                required
-                rows={4}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black resize-none"
-                placeholder="Enter a short description"
-              />
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <button
-                type="submit"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-              >
-                Submit
-              </button>
-              <button
-                type="button"
-                onClick={handleReset}
-                className="bg-gray-400 hover:bg-gray-500 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-              >
-                Reset
-              </button>
-            </div>
-          </form>
-        </section>
+    <div className="p-6 space-y-4">
+      <div className="flex justify-between items-center text-black">
+        <h1 className="text-2xl font-semibold text-black">Material Listing</h1>
+        <AddMaterialButton />
       </div>
+
+      {error && <p className="text-red-600">{error}</p>}
+
+      {isLoading ? (
+        <p className="text-gray-600">Loading materials...</p>
+      ) : materials.length > 0 ? (
+        <MaterialTable materials={materials} />
+      ) : (
+        <p className="text-gray-600">No materials found.</p>
+      )}
     </div>
   );
 }

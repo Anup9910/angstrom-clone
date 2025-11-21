@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# Add the parent directory to the Python path to allow imports
+parent_dir = Path(__file__).parent.parent
+if str(parent_dir) not in sys.path:
+    sys.path.insert(0, str(parent_dir))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

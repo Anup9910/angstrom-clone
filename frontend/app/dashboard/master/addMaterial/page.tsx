@@ -31,6 +31,7 @@ export default function AddMaterialPage() {
       }
     }
     fetchGroups();
+    
   }, [token]);
 
   const handleSubmit = (e: React.FormEvent) => {

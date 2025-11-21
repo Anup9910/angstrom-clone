@@ -6,14 +6,23 @@ import { useState } from 'react';
 const Sidebar = () => {
   const pathname = usePathname();
   const [open, setOpen] = useState(true);
+  const [masterExpanded, setMasterExpanded] = useState(
+    pathname?.startsWith('/dashboard/master') || false
+  );
 
   const links = [
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'Users', href: '/dashboard/users' },
     { name: 'Reports', href: '/dashboard/reports' },
     { name: 'Settings', href: '/dashboard/settings' },
-    { name: 'Master', href: '/dashboard/master/material' },
   ];
+
+  const masterSubmenu = [
+    { name: 'Material Master', href: '/dashboard/master/material' },
+    { name: 'Master Formulas', href: '/dashboard/master/formulas' },
+  ];
+
+  const isMasterActive = pathname?.startsWith('/dashboard/master');
 
   return (
     <>
@@ -47,6 +56,41 @@ const Sidebar = () => {
               </Link>
             </li>
           ))}
+
+          {/* Master expandable section */}
+          <li>
+            <button
+              onClick={() => setMasterExpanded(!masterExpanded)}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition ${
+                isMasterActive
+                  ? 'bg-gray-700 text-white font-semibold'
+                  : 'hover:bg-gray-800 text-gray-300'
+              }`}
+            >
+              <span>Master</span>
+              <span className="text-sm">
+                {masterExpanded ? '▼' : '▶'}
+              </span>
+            </button>
+            {masterExpanded && (
+              <ul className="mt-2 ml-4 space-y-2">
+                {masterSubmenu.map((subItem) => (
+                  <li key={subItem.href}>
+                    <Link
+                      href={subItem.href}
+                      className={`block px-3 py-2 rounded-md transition ${
+                        pathname === subItem.href
+                          ? 'bg-gray-700 text-white font-semibold'
+                          : 'hover:bg-gray-800 text-gray-300'
+                      }`}
+                    >
+                      {subItem.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
         </ul>
       </aside>
     </>
